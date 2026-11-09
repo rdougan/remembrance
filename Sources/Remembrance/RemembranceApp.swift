@@ -63,7 +63,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let prefix = env["REMEMBRANCE_SNAPSHOT"] else { return }
         for t in (env["REMEMBRANCE_SNAPSHOT_AT"] ?? "2").split(separator: ",").compactMap({ Double($0) }) {
             DispatchQueue.main.asyncAfter(deadline: .now() + t) {
-                guard let view = NSApp.windows.first(where: { $0.isVisible })?.contentView,
+                guard let content = NSApp.windows.first(where: { $0.isVisible })?.contentView,
+                      let view = content.superview ?? Optional(content),   // the frame view: title bar included
                       let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
                 view.cacheDisplay(in: view.bounds, to: rep)
                 try? rep.representation(using: .png, properties: [:])?

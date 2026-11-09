@@ -4,7 +4,7 @@ A small macOS app for running the audio at a Canadian Remembrance Day service: *
 Last Post**, **two minutes of silence**, **the Rouse** and **God Save the King**, using the official
 Government of Canada recordings.
 
-![Remembrance window](docs/screenshot.png)
+<p align="center"><img src="docs/screenshot.png" width="800" alt="Remembrance window"></p>
 
 ## Running the service
 
@@ -41,6 +41,13 @@ Needs only the Xcode Command Line Tools (macOS 14+):
 ```sh
 scripts/build-app.sh      # downloads the recordings, builds build/Remembrance.app (ad-hoc signed)
 open build/Remembrance.app
+```
+
+To refresh the README screenshot (2x, with the window frame):
+
+```sh
+REMEMBRANCE_SNAPSHOT=/tmp/shot build/Remembrance.app/Contents/MacOS/Remembrance &   # writes /tmp/shot-2.png
+swift scripts/frame-screenshot.swift /tmp/shot-2.png docs/screenshot.png
 ```
 
 Every push to `main` that changes the app builds, signs, notarizes and publishes a release
