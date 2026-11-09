@@ -14,6 +14,7 @@ struct ContentView: View {
                 VStack(spacing: 8) {
                     ForEach(Array(service.cues.enumerated()), id: \.element.id) { index, cue in
                         CueRow(index: index, cue: cue)
+                        if cue.id == "rouse" { SpokenSection() }
                     }
                 }
                 .padding(16)
@@ -23,7 +24,7 @@ struct ContentView: View {
                 .padding(.horizontal, 20).padding(.vertical, 14)
                 .background(.bar)
         }
-        .frame(minWidth: 620, minHeight: 600)
+        .frame(minWidth: 720, minHeight: 640)
     }
 }
 
@@ -190,6 +191,33 @@ private struct CueRow: View {
     }
 }
 
+// MARK: - Spoken part of the service (not a cue: shown for orientation, never selected)
+
+private struct SpokenSection: View {
+    static let items = [
+        "Act of Remembrance / Commitment to Remember",
+        "Prayers",
+        "Placing of wreaths (In Flanders Fields is often read)",
+        "Benediction / guest speakers",
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(Self.items, id: \.self) { item in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "text.bubble").font(.callout).foregroundStyle(.tertiary)
+                    Text(item).font(.callout).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 52).padding(.trailing, 14).padding(.vertical, 10)
+        .overlay(RoundedRectangle(cornerRadius: 10)
+            .strokeBorder(Color.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: - Transport
 
 private struct Transport: View {
@@ -199,21 +227,27 @@ private struct Transport: View {
         HStack(spacing: 14) {
             Button(action: service.go) {
                 Label(playTitle, systemImage: service.isBusy ? "waveform" : "play.fill")
+                    .labelStyle(.titleAndIcon)
                     .font(.title3.weight(.semibold))
-                    .frame(minWidth: 260, minHeight: 34)
+                    .lineLimit(1)
+                    .frame(minWidth: 220, maxWidth: 320, minHeight: 34)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(service.isBusy)
 
             Button { service.stop() } label: {
-                Label(stopTitle, systemImage: "stop.fill").frame(minHeight: 34)
+                Label(stopTitle, systemImage: "stop.fill")
+                    .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
+                    .frame(minHeight: 34)
             }
+            .fixedSize()
             .controlSize(.large)
             .disabled(!service.isBusy)
             .help("Fades out over 1.5 seconds (Esc). Shift-Esc stops at once.")
 
-            Spacer()
+            Spacer(minLength: 8)
 
             VStack(alignment: .trailing, spacing: 6) {
                 HStack(spacing: 6) {
