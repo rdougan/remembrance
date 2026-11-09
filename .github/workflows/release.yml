@@ -1,0 +1,160 @@
+name: Release
+
+# Every push to main that changes the app builds a Developer ID-signed, notarized
+# Remembrance-<version>.dmg and publishes it as a GitHub Release tagged v<version>.
+# Signing and notarizing are the same steps as rdougan/finances (mac-release.yml).
+#
+# Versions: CFBundleShortVersionString = <VERSION>.<run number>, CFBundleVersion = <run number>.
+#
+# Required repository secrets (scripts/set-release-secrets.sh sets them):
+#   BUILD_CERTIFICATE_BASE64  base64 of the "Developer ID Application" .p12 (incl. private key)
+#   P12_PASSWORD              its export password
+#   NOTARY_KEY_BASE64         base64 of an App Store Connect API key (.p8)
+#   NOTARY_KEY_ID             that key's Key ID
+#   NOTARY_ISSUER_ID          the App Store Connect Issuer ID
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Sources/**"
+      - "Resources/**"
+      - "scripts/**"
+      - "dmg/**"
+      - "Package.swift"
+      - "VERSION"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a Release (off = build, sign and notarize only)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write   # create the tag and Release
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-26
+    env:
+      BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+      NOTARY_KEY_BASE64: ${{ secrets.NOTARY_KEY_BASE64 }}
+      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+      NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # release notes compare against the previous v tag
+
+      - name: Preflight — required secrets present
+        run: |
+          missing=()
+          for s in BUILD_CERTIFICATE_BASE64 P12_PASSWORD NOTARY_KEY_BASE64 NOTARY_KEY_ID NOTARY_ISSUER_ID; do
+            [[ -z "${!s}" ]] && missing+=("$s")
+          done
+          if (( ${#missing[@]} )); then
+            echo "::error::Missing required secrets: ${missing[*]}. Run scripts/set-release-secrets.sh."
+            exit 1
+          fi
+
+      - name: Select Xcode
+        run: |
+          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          [[ -n "$xcode" ]] && sudo xcode-select -s "$xcode"
+          xcodebuild -version
+
+      - name: Version
+        id: ver
+        run: |
+          v="$(tr -d '[:space:]' < VERSION).${GITHUB_RUN_NUMBER}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "build=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          echo "Releasing $v"
+
+      - name: Import signing certificate
+        id: cert
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null 2>&1 \
+            || echo "note: set-key-partition-list returned non-zero (continuing)"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application" | head -1 | awk '{print $2}')
+          if [[ -z "$IDENTITY" ]]; then
+            IDENTITY=$(security find-identity -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application" | head -1 | awk '{print $2}')
+          fi
+          if [[ -z "$IDENTITY" ]]; then
+            security find-identity "$KEYCHAIN_PATH" || true
+            echo "::error::No 'Developer ID Application' identity found after import."
+            exit 1
+          fi
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "keychain=$KEYCHAIN_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Build and sign app (universal, Developer ID, hardened runtime)
+        env:
+          UNIVERSAL: "1"
+          SIGN_IDENTITY: ${{ steps.cert.outputs.identity }}
+        run: |
+          bash scripts/build-app.sh "${{ steps.ver.outputs.version }}" "${{ steps.ver.outputs.build }}"
+          lipo -info build/Remembrance.app/Contents/MacOS/Remembrance
+          codesign --verify --strict --verbose=2 build/Remembrance.app
+
+      - name: Package DMG
+        id: dmg
+        run: |
+          NAME="Remembrance-${{ steps.ver.outputs.version }}.dmg"
+          bash dmg/make-dmg.sh build/Remembrance.app "$NAME"
+          codesign --force --timestamp --sign "${{ steps.cert.outputs.identity }}" "$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Notarize & staple
+        run: |
+          echo "$NOTARY_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool submit "${{ steps.dmg.outputs.name }}" --key "$RUNNER_TEMP/notary.p8" \
+            --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
+          xcrun stapler staple "${{ steps.dmg.outputs.name }}"
+          xcrun stapler validate "${{ steps.dmg.outputs.name }}"
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          security delete-keychain "${{ steps.cert.outputs.keychain }}" || true
+          rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/notary.p8" || true
+
+      - name: Release notes
+        if: github.event_name == 'push' || inputs.publish
+        run: |
+          prev="$(git tag -l 'v*' --sort=-v:refname | head -1)"
+          {
+            echo "**Install:** open the DMG and drag Remembrance to Applications."
+            echo
+            echo "### Changes"
+            if [[ -n "$prev" ]]; then
+              git log --no-merges --format='- %s' "$prev..HEAD"
+            else
+              git log --no-merges --format='- %s' -20
+            fi
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: Publish Release
+        if: github.event_name == 'push' || inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" "${{ steps.dmg.outputs.name }}" \
+            --target "$GITHUB_SHA" --title "Remembrance ${{ steps.ver.outputs.version }}" \
+            --notes-file "$RUNNER_TEMP/notes.md" --latest
