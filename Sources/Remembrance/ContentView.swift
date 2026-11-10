@@ -13,8 +13,9 @@ struct ContentView: View {
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(Array(service.cues.enumerated()), id: \.element.id) { index, cue in
+                        if cue.id == "o-canada" { SpokenSection(items: SpokenSection.opening) }
                         CueRow(index: index, cue: cue)
-                        if cue.id == "rouse" { SpokenSection() }
+                        if cue.id == "rouse" { SpokenSection(items: SpokenSection.afterRouse) }
                     }
                 }
                 .padding(16)
@@ -58,20 +59,15 @@ private struct Header: View {
                 Text(countdown)
                     .font(.title3.monospacedDigit())
                     .foregroundStyle(.secondary)
-                if let start = service.lastPostStart {
-                    HStack(spacing: 8) {
-                        Text("Last Post starts \(start.formatted(.dateTime.hour().minute().second()))")
-                            .monospacedDigit()
-                        Toggle("Start it automatically", isOn: $service.armed)
-                            .toggleStyle(.checkbox)
-                            .disabled(start < service.now || service.isBusy)
-                            .help("Plays the Last Post at exactly this time so its last note sounds at the silence.")
-                    }
-                    .font(.callout)
+                if let oc = service.oCanadaStart, let lp = service.lastPostStart {
+                    Text("O Canada \(time(oc))  ·  Last Post \(time(lp))")
+                        .font(.callout.monospacedDigit())
                 }
             }
         }
     }
+
+    private func time(_ d: Date) -> String { d.formatted(.dateTime.hour().minute().second()) }
 
     private var countdown: String {
         let diff = service.targetDate.timeIntervalSince(service.now)
@@ -144,8 +140,27 @@ private struct CueRow: View {
         .contextMenu { if cue.isAudio { fileMenu } }
     }
 
+    var pendingHere: Bool { service.pending?.index == index && service.playing == nil }
+
     @ViewBuilder private var trailing: some View {
-        if isActive, case .silence = cue.kind, let remaining = service.silenceRemaining {
+        if pendingHere, let at = service.pending?.at {
+            VStack(alignment: .trailing, spacing: 0) {
+                Text("starts in").font(.callout).foregroundStyle(.secondary)
+                Text(clock(max(0, at.timeIntervalSince(service.now))))
+                    .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
+            }
+        } else if cue.id == "o-canada", !isActive, !isDone, let start = service.oCanadaStart,
+                  start.timeIntervalSince(service.now) > -60 {
+            // Countdown to the latest moment O Canada can start (shown until a minute past it).
+            let diff = start.timeIntervalSince(service.now)
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(diff > 0 ? "start in" : "start now").font(.callout)
+                    .foregroundStyle(diff > 0 ? Color.secondary : Color.orange)
+                Text(diff > 0 ? clock(diff) : "−" + clock(-diff))
+                    .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(diff > 0 ? (diff <= 30 ? Color.orange : Color.primary) : Color.orange)
+            }
+        } else if isActive, case .silence = cue.kind, let remaining = service.silenceRemaining {
             Text(clock(remaining))
                 .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
         } else if isActive, let total = service.duration(of: cue) {
@@ -194,16 +209,19 @@ private struct CueRow: View {
 // MARK: - Spoken part of the service (not a cue: shown for orientation, never selected)
 
 private struct SpokenSection: View {
-    static let items = [
+    static let opening = ["Opening remarks"]
+    static let afterRouse = [
         "Act of Remembrance / Commitment to Remember",
         "Prayers",
         "Placing of wreaths (In Flanders Fields is often read)",
         "Benediction / guest speakers",
     ]
 
+    let items: [String]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            ForEach(Self.items, id: \.self) { item in
+            ForEach(items, id: \.self) { item in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: "text.bubble").font(.callout).foregroundStyle(.tertiary)
                     Text(item).font(.callout).foregroundStyle(.secondary)
@@ -226,7 +244,7 @@ private struct Transport: View {
     var body: some View {
         HStack(spacing: 14) {
             Button(action: service.go) {
-                Label(playTitle, systemImage: service.isBusy ? "waveform" : "play.fill")
+                Label(playTitle, systemImage: service.playing != nil ? "waveform" : "play.fill")
                     .labelStyle(.titleAndIcon)
                     .font(.title3.weight(.semibold))
                     .lineLimit(1)
@@ -234,7 +252,7 @@ private struct Transport: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(service.isBusy)
+            .disabled(service.playing != nil)
 
             Button { service.stop() } label: {
                 Label(stopTitle, systemImage: "stop.fill")
@@ -267,10 +285,12 @@ private struct Transport: View {
 
     private var playTitle: String {
         if let i = service.playing { return service.cues[i].title }
+        if let p = service.pending { return "Start \(service.cues[p.index].title) Now" }
         return "Play \(service.cues[service.selected].title)"
     }
 
     private var stopTitle: String {
+        if service.playing == nil, service.pending != nil { return "Cancel" }
         if let i = service.playing, !service.cues[i].isAudio { return "End Silence" }
         return "Stop"
     }

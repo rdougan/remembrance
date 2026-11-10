@@ -4,19 +4,23 @@ A small macOS app for running the audio at a Canadian Remembrance Day service: *
 Last Post**, **two minutes of silence**, **the Rouse** and **God Save the King**, using the official
 Government of Canada recordings.
 
-<p align="center"><img src="docs/screenshot.png" width="800" alt="Remembrance window"></p>
+<p align="center"><img src="docs/screenshot.png" width="857" alt="Remembrance window"></p>
 
 ## Running the service
 
 - **Space** plays the selected cue. Space does nothing while a cue is sounding, so a double press
   can't restart anything.
 - **Esc** fades out over 1.5 s; **Shift-Esc** stops at once. **↑/↓** move the selection.
+- **O Canada** shows a countdown to the latest it can start (10:57:05 for an 11:00 silence). Press
+  Space when the opening remarks finish, at or before that time.
+- **The Last Post follows by itself**, 5 seconds after O Canada ends, or later if O Canada started
+  early: it waits for its scheduled start (10:58:43) so its last note sounds at 11:00. While it
+  waits, Space starts it now and Esc cancels.
 - When the Last Post ends, **the two-minute silence starts by itself** and counts down. Then the
-  Rouse is selected and waits for you. If no piper plays a Lament, tick "Sound the Rouse when the
+  Rouse is selected and waits for you. If no piper plays a Lament, tick "Play the Rouse when the
   silence ends" to play it automatically.
-- **Last Post timing:** the header shows when the Last Post must start so its last note sounds at
-  11:00 (10:58:36 with the official recording). Tick "Start it automatically" and the app starts
-  it on the second. "Silence at" changes the target time for services that aren't at 11:00.
+- "Silence at" changes the target time for services that aren't at 11:00; every other time moves
+  with it.
 - The header shows the Mac's **sound output** (check it says your PA/speaker, not "MacBook Pro
   Speakers"). The Mac won't sleep or dim while the app is open, and it asks before quitting
   mid-cue.

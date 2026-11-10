@@ -9,8 +9,9 @@ silence at 11:00** (VAC: "the _Last Post_ is finished at exactly 11 am, marking 
 the two minutes of silent reflection"). The Last Post, silence and Rouse "take place one after the
 other, without interruption", so the silence runs 11:00–11:02.
 
-With the official CAF recording (1:24), the Last Post starts at **10:58:36**. The app shows this time
-and can start it by itself ("Start it automatically").
+The official CAF Last Post sounds for 1:17 (the file runs 1:24, but the last 7 seconds are quiet room
+echo), so it starts at **10:58:43**. O Canada (1:33 of sound) plus a 5-second pause before it means
+O Canada must start by **10:57:05**. The app counts down to that, then starts the Last Post by itself.
 
 ## Recommended order (Royal Canadian Legion)
 
@@ -18,23 +19,23 @@ and can start it by itself ("Start it automatically").
 |---|------|-------|------|
 | 1 | Land acknowledgment | — | before 11:00 |
 | 2 | Opening remarks | — | |
-| 3 | **O Canada** | 1:36 | e.g. ~10:56, finishing by 10:58:30 |
-| 4 | **Last Post** | 1:24 | **10:58:36 → 11:00:00** |
+| 3 | **O Canada** | 1:33 | start by **10:57:05** |
+| 4 | **Last Post** | 1:17 | **10:58:43 → 11:00:00** (5 s after O Canada) |
 | 5 | **Two minutes of silence** | 2:00 | **11:00:00 → 11:02:00** |
 | 6 | Lament (piper, optional) | — | |
-| 7 | **Rouse** | 0:23 | ~11:02 |
+| 7 | **Rouse** | 0:18 | ~11:02 |
 | 8 | Act of Remembrance / Commitment to Remember | — | |
 | 9 | Prayers | — | |
 | 10 | Placing of wreaths (often with *In Flanders Fields* read) | — | |
 | 11 | Benediction / guest speakers | — | |
-| 12 | **God Save the King** | 0:49 | closes the ceremony |
+| 12 | **God Save the King** | 0:47 | closes the ceremony |
 
 ### Working backwards for a typical 11:00 service
 
 - 10:50  Gathering, parade in place
 - 10:53  Land acknowledgment, opening remarks
-- 10:56  O Canada (ends ~10:57:40, leaving time to settle)
-- 10:58:36  Last Post
+- 10:57:05  O Canada (start by then; earlier is fine)
+- 10:58:43  Last Post (by itself)
 - 11:00  Two minutes of silence
 - 11:02  (Lament) → Rouse
 - 11:03  Act of Remembrance, prayers, wreaths, speakers

@@ -3,14 +3,20 @@ import AppKit
 import Combine
 import Foundation
 
-/// Runs the service: plays cues, times the silence, and can start the Last Post by itself so that
-/// it ends exactly at the target time (11:00 by default).
+/// Runs the service: plays cues and times the silence. After O Canada the Last Post follows by
+/// itself, at least `gap` seconds later and timed to end exactly at the target time (11:00).
 @MainActor
 final class ServiceController: ObservableObject {
     let cues = Cue.service
+    /// Pause between O Canada ending and the Last Post starting.
+    static let gap: TimeInterval = 5
+
+    /// A cue that will start by itself at `at` (the Last Post after O Canada).
+    struct Pending: Equatable { let index: Int; let at: Date }
 
     @Published var selected = 0
     @Published private(set) var playing: Int?          // index of the cue sounding / counting now
+    @Published private(set) var pending: Pending?
     @Published private(set) var elapsed: TimeInterval = 0
     @Published private(set) var done: Set<String> = []
     @Published private(set) var now = Date()
@@ -25,8 +31,6 @@ final class ServiceController: ObservableObject {
             if let p = currentPlayer, !fading { p.volume = Float(volume) }
         }
     }
-    /// Start the Last Post automatically so that it ends at `targetTime`.
-    @Published var armed = false
     /// Sound the Rouse as soon as the silence ends (off: the operator presses Play).
     @Published var autoRouse = UserDefaults.standard.bool(forKey: "autoRouse") {
         didSet { UserDefaults.standard.set(autoRouse, forKey: "autoRouse") }
@@ -113,6 +117,14 @@ final class ServiceController: ObservableObject {
         durations[lastPost.id].map { targetDate.addingTimeInterval(-$0) }
     }
 
+    var oCanada: Cue { cues.first { $0.id == "o-canada" }! }
+
+    /// The latest O Canada can start for the Last Post to follow after the gap and end on time.
+    var oCanadaStart: Date? {
+        guard let lp = lastPostStart, let d = durations[oCanada.id] else { return nil }
+        return lp.addingTimeInterval(-Self.gap - d)
+    }
+
     var silenceDuration: TimeInterval {
         if case .silence(let s) = silenceCue.kind { return s }
         return 120
@@ -130,19 +142,22 @@ final class ServiceController: ObservableObject {
 
     // MARK: Transport
 
-    var isBusy: Bool { playing != nil }
+    /// Something is sounding, counting, or about to start by itself.
+    var isBusy: Bool { playing != nil || pending != nil }
 
-    /// Plays the selected cue. Does nothing while another cue is sounding, so a double press
-    /// can never start something over the top.
+    /// Plays the selected cue, or starts a waiting cue now. Does nothing while a cue is sounding,
+    /// so a double press can never start something over the top.
     func go() {
+        if let p = pending { start(p.index); return }
         guard !isBusy, cues.indices.contains(selected) else { return }
         start(selected)
     }
 
-    /// `offset` skips into the recording (used when the timed Last Post fires a little late,
-    /// so it still ends on time).
+    /// `offset` skips into the recording (used when the timer fires a little late, so the
+    /// Last Post still ends on time).
     func start(_ index: Int, offset: TimeInterval = 0) {
-        guard !isBusy else { return }
+        guard playing == nil else { return }
+        pending = nil
         let cue = cues[index]
         selected = index
         switch cue.kind {
@@ -159,11 +174,12 @@ final class ServiceController: ObservableObject {
             elapsed = p.currentTime
             p.play()
         }
-        if cue.id == lastPost.id { armed = false }
     }
 
     /// Fades the current recording out over `seconds` (0 = cut), or ends the silence early.
+    /// Also cancels a cue waiting to start by itself.
     func stop(fade seconds: TimeInterval = 1.5) {
+        if pending != nil, playing == nil { pending = nil; return }
         guard let index = playing else { return }
         if cues[index].isAudio, let p = currentPlayer {
             if seconds > 0, p.isPlaying, !fading {
@@ -201,8 +217,12 @@ final class ServiceController: ObservableObject {
         let next = index + 1
         if advance, cues.indices.contains(next) {
             selected = next
-            // The Last Post's final note begins the silence.
-            if cue.id == lastPost.id, cues[next].id == silenceCue.id {
+            // The Last Post follows O Canada after the gap, or at its scheduled time if that's
+            // later, so its last note still sounds at the target time.
+            if cue.id == oCanada.id, cues[next].id == lastPost.id {
+                let soonest = Date().addingTimeInterval(Self.gap)
+                pending = Pending(index: next, at: max(soonest, lastPostStart ?? soonest))
+            } else if cue.id == lastPost.id, cues[next].id == silenceCue.id {
                 start(next)
             } else if cue.id == silenceCue.id, cues[next].id == "rouse", autoRouse {
                 start(next)
@@ -213,10 +233,10 @@ final class ServiceController: ObservableObject {
     }
 
     func reset() {
+        pending = nil
         if isBusy { stop(fade: 0) }
         done = []
         selected = 0
-        armed = false
     }
 
     func select(_ delta: Int) {
@@ -235,15 +255,10 @@ final class ServiceController: ObservableObject {
                 elapsed = silenceDuration - remaining
                 if remaining <= 0 { finish(index, advance: true) }
             }
-        } else if armed, let due = lastPostStart, date >= due {
-            // Fire up to 10 s late, skipping in by the delay so the last note still lands on time;
-            // any later and it waits for the operator.
-            let late = date.timeIntervalSince(due)
-            if late < 10, let i = cues.firstIndex(of: lastPost) {
-                start(i, offset: late > 0.25 ? late : 0)
-            } else {
-                armed = false
-            }
+        } else if let p = pending, date >= p.at {
+            // If the timer fires late (it shouldn't), skip in by the delay to keep the end on time.
+            let late = date.timeIntervalSince(p.at)
+            start(p.index, offset: late > 0.25 && late < 10 ? late : 0)
         }
     }
 

@@ -19,9 +19,9 @@ struct Cue: Identifiable, Equatable {
     /// the CAF / Veterans Affairs Canada guidance (see docs/ORDER-OF-SERVICE.md).
     static let service: [Cue] = [
         Cue(id: "o-canada", title: "O Canada", kind: .audio(resource: "o-canada.mp3"),
-            note: "Near the start, around the opening remarks. Leave it finished by about 10:58."),
+            note: "After the opening remarks. Start it by the time shown; the Last Post follows by itself."),
         Cue(id: "last-post", title: "The Last Post", kind: .audio(resource: "last-post.wav"),
-            note: "Timed so its last note sounds at 11:00, which begins the silence."),
+            note: "Starts by itself 5 seconds after O Canada, timed so its last note begins the silence."),
         Cue(id: "silence", title: "Two Minutes of Silence", kind: .silence(seconds: 120),
             note: "Starts by itself when the Last Post ends. No music at all, not even a lament."),
         Cue(id: "rouse", title: "The Rouse", kind: .audio(resource: "rouse.wav"),

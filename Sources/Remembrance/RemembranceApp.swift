@@ -12,14 +12,14 @@ struct RemembranceApp: App {
                 .environmentObject(service)
                 .onAppear { appDelegate.service = service }
         }
-        .defaultSize(width: 720, height: 700)
+        .defaultSize(width: 720, height: 800)
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandMenu("Service") {
-                Button("Play Selected") { service.go() }
+                Button(service.pending != nil ? "Start Now" : "Play Selected") { service.go() }
                     .keyboardShortcut(.space, modifiers: [])
-                    .disabled(service.isBusy)
-                Button("Fade Out") { service.stop() }
+                    .disabled(service.playing != nil)
+                Button(service.pending != nil && service.playing == nil ? "Cancel" : "Fade Out") { service.stop() }
                     .keyboardShortcut(.escape, modifiers: [])
                     .disabled(!service.isBusy)
                 Button("Stop at Once") { service.stop(fade: 0) }
@@ -43,8 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
-    /// REMEMBRANCE_PLAY=<cue id> starts that cue at launch, REMEMBRANCE_ARM=1 arms the timed
-    /// Last Post (for testing the sequence).
+    /// REMEMBRANCE_PLAY=<cue id> starts that cue at launch (for testing the sequence).
     /// REMEMBRANCE_SNAPSHOT=<prefix> saves the window to <prefix>-<seconds>.png at each of
     /// REMEMBRANCE_SNAPSHOT_AT (default "2") seconds after launch, for checking the layout
     /// without screen-recording permission.
@@ -56,9 +55,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let s = self?.service, let i = s.cues.firstIndex(where: { $0.id == id }) else { return }
                 s.start(i)
             }
-        }
-        if env["REMEMBRANCE_ARM"] == "1" {   // arm the timed Last Post at launch (testing)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.service?.armed = true }
         }
         guard let prefix = env["REMEMBRANCE_SNAPSHOT"] else { return }
         for t in (env["REMEMBRANCE_SNAPSHOT_AT"] ?? "2").split(separator: ",").compactMap({ Double($0) }) {
