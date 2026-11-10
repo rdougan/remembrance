@@ -11,6 +11,20 @@ final class ServiceController: ObservableObject {
     /// Pause between O Canada ending and the Last Post starting.
     static let gap: TimeInterval = 5
 
+    /// REMEMBRANCE_CLOCK=HH:MM:SS runs the app's clock as if it were that time today (for README
+    /// screenshots and rehearsing the timing). Zero otherwise.
+    static let clockOffset: TimeInterval = {
+        guard let value = ProcessInfo.processInfo.environment["REMEMBRANCE_CLOCK"] else { return 0 }
+        let parts = value.split(separator: ":").compactMap { Int($0) }
+        guard parts.count >= 2,
+              let fake = Calendar.current.date(bySettingHour: parts[0], minute: parts[1],
+                                               second: parts.count > 2 ? parts[2] : 0, of: Date())
+        else { return 0 }
+        return fake.timeIntervalSinceNow
+    }()
+
+    static func clock() -> Date { Date().addingTimeInterval(clockOffset) }
+
     /// A cue that will start by itself at `at` (the Last Post after O Canada).
     struct Pending: Equatable { let index: Int; let at: Date }
 
@@ -19,7 +33,7 @@ final class ServiceController: ObservableObject {
     @Published private(set) var pending: Pending?
     @Published private(set) var elapsed: TimeInterval = 0
     @Published private(set) var done: Set<String> = []
-    @Published private(set) var now = Date()
+    @Published private(set) var now = ServiceController.clock()
     @Published private(set) var loadErrors: [String: String] = [:]
     @Published private(set) var durations: [String: TimeInterval] = [:]
     @Published private(set) var outputName = AudioOutput.defaultDeviceName()
@@ -162,7 +176,7 @@ final class ServiceController: ObservableObject {
         selected = index
         switch cue.kind {
         case .silence:
-            silenceStart = Date()
+            silenceStart = Self.clock()
             playing = index
         case .audio:
             guard let p = players[cue.id] else { NSSound.beep(); return }
@@ -220,7 +234,7 @@ final class ServiceController: ObservableObject {
             // The Last Post follows O Canada after the gap, or at its scheduled time if that's
             // later, so its last note still sounds at the target time.
             if cue.id == oCanada.id, cues[next].id == lastPost.id {
-                let soonest = Date().addingTimeInterval(Self.gap)
+                let soonest = Self.clock().addingTimeInterval(Self.gap)
                 pending = Pending(index: next, at: max(soonest, lastPostStart ?? soonest))
             } else if cue.id == lastPost.id, cues[next].id == silenceCue.id {
                 start(next)
@@ -245,7 +259,7 @@ final class ServiceController: ObservableObject {
     }
 
     private func tick(_ date: Date) {
-        now = date
+        now = date.addingTimeInterval(Self.clockOffset)
         if let index = playing {
             if cues[index].isAudio, let p = currentPlayer {
                 elapsed = p.currentTime

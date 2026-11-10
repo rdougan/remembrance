@@ -50,7 +50,7 @@ open build/Remembrance.app
 To refresh the README screenshot (2x, with the window frame):
 
 ```sh
-REMEMBRANCE_SNAPSHOT=/tmp/shot build/Remembrance.app/Contents/MacOS/Remembrance &   # writes /tmp/shot-2.png
+REMEMBRANCE_CLOCK=10:54:30 REMEMBRANCE_SNAPSHOT=/tmp/shot build/Remembrance.app/Contents/MacOS/Remembrance &   # writes /tmp/shot-2.png
 swift scripts/frame-screenshot.swift /tmp/shot-2.png docs/screenshot.png
 ```
 
