@@ -14,6 +14,7 @@ struct ContentView: View {
                 VStack(spacing: 8) {
                     ForEach(Array(service.cues.enumerated()), id: \.element.id) { index, cue in
                         if cue.id == "o-canada" { SpokenSection(items: SpokenSection.opening) }
+                        if cue.id == "last-post" { SpokenSection(items: SpokenSection.afterOCanada) }
                         CueRow(index: index, cue: cue)
                         if cue.id == "rouse" { SpokenSection(items: SpokenSection.afterRouse) }
                     }
@@ -60,7 +61,7 @@ private struct Header: View {
                     .font(.title3.monospacedDigit())
                     .foregroundStyle(.secondary)
                 if let oc = service.oCanadaStart, let lp = service.lastPostStart {
-                    Text("O Canada \(time(oc))  ·  Last Post \(time(lp))")
+                    Text("O Canada by \(time(oc))  ·  Last Post \(time(lp))")
                         .font(.callout.monospacedDigit())
                 }
             }
@@ -149,16 +150,31 @@ private struct CueRow: View {
                 Text(clock(max(0, at.timeIntervalSince(service.now))))
                     .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
             }
+        } else if cue.id == "last-post", !isActive, !isDone, let at = service.lastPostStart {
+            // Not queued yet (O Canada hasn't ended): count down to its scheduled start.
+            VStack(alignment: .trailing, spacing: 0) {
+                Text("starts in").font(.callout).foregroundStyle(.secondary)
+                Text(clock(max(0, at.timeIntervalSince(service.now))))
+                    .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
+            }
         } else if cue.id == "o-canada", !isActive, !isDone, let start = service.oCanadaStart,
                   start.timeIntervalSince(service.now) > -60 {
-            // Countdown to the latest moment O Canada can start (shown until a minute past it).
+            // O Canada starts whenever the MC calls for it. This is only the deadline: shown quietly
+            // until a minute before, then as a countdown (until a minute past it).
             let diff = start.timeIntervalSince(service.now)
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(diff > 0 ? "start in" : "start now").font(.callout)
-                    .foregroundStyle(diff > 0 ? Color.secondary : Color.orange)
-                Text(diff > 0 ? clock(diff) : "−" + clock(-diff))
-                    .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(diff > 0 ? (diff <= 30 ? Color.orange : Color.primary) : Color.orange)
+            if diff > 60 {
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text("start by").font(.callout).foregroundStyle(.secondary)
+                    Text(start, format: .dateTime.hour().minute().second())
+                        .font(.title3.monospacedDigit().weight(.semibold)).foregroundStyle(.secondary)
+                }
+            } else {
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(diff > 0 ? "start in" : "start now").font(.callout).foregroundStyle(Color.orange)
+                    Text(diff > 0 ? clock(diff) : "−" + clock(-diff))
+                        .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(Color.orange)
+                }
             }
         } else if isActive, case .silence = cue.kind, let remaining = service.silenceRemaining {
             Text(clock(remaining))
@@ -209,12 +225,14 @@ private struct CueRow: View {
 // MARK: - Spoken part of the service (not a cue: shown for orientation, never selected)
 
 private struct SpokenSection: View {
-    static let opening = ["Opening remarks"]
+    static let opening = ["Welcome; the MC asks everyone to stand for the anthem"]
+    static let afterOCanada = [
+        "MC: welcome, and what the next few minutes hold (Last Post, silence, Rouse)",
+        "Hold here: the Last Post starts by itself at its scheduled time",
+    ]
     static let afterRouse = [
-        "Act of Remembrance / Commitment to Remember",
-        "Prayers",
-        "Placing of wreaths (In Flanders Fields is often read)",
-        "Benediction / guest speakers",
+        "Act of Remembrance; Commitment to Remember",
+        "In Flanders Fields; laying of wreaths",
     ]
 
     let items: [String]

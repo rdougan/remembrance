@@ -11,11 +11,12 @@ Government of Canada recordings.
 - **Space** plays the selected cue. Space does nothing while a cue is sounding, so a double press
   can't restart anything.
 - **Esc** fades out over 1.5 s; **Shift-Esc** stops at once. **↑/↓** move the selection.
-- **O Canada** shows a countdown to the latest it can start (10:57:05 for an 11:00 silence). Press
-  Space when the opening remarks finish, at or before that time.
-- **The Last Post follows by itself**, 5 seconds after O Canada ends, or later if O Canada started
-  early: it waits for its scheduled start (10:58:43) so its last note sounds at 11:00. While it
-  waits, Space starts it now and Esc cancels.
+- **O Canada starts whenever the MC calls for it**: press Space then. The app only shows the
+  deadline (10:57:05 for an 11:00 silence), turning into a countdown in the last minute.
+- After O Canada the MC speaks (welcome, what to expect), and the app counts down to **the Last
+  Post, which starts by itself** at its scheduled time (10:58:43) so its last note sounds at 11:00.
+  If O Canada ran right up to the deadline it follows 5 seconds after. While it waits, Space starts
+  it now and Esc cancels.
 - When the Last Post ends, **the two-minute silence starts by itself** and counts down. Then the
   Rouse is selected and waits for you. If no piper plays a Lament, tick "Play the Rouse when the
   silence ends" to play it automatically.

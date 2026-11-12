@@ -19,14 +19,14 @@ struct Cue: Identifiable, Equatable {
     /// the CAF / Veterans Affairs Canada guidance (see docs/ORDER-OF-SERVICE.md).
     static let service: [Cue] = [
         Cue(id: "o-canada", title: "O Canada", kind: .audio(resource: "o-canada.mp3"),
-            note: "After the opening remarks. Start it by the time shown; the Last Post follows by itself."),
+            note: "Start it when the MC calls for the anthem (any time before the deadline); the flag goes up during it."),
         Cue(id: "last-post", title: "The Last Post", kind: .audio(resource: "last-post.wav"),
-            note: "Starts by itself 5 seconds after O Canada, timed so its last note begins the silence."),
+            note: "Starts by itself after the MC’s remarks, timed so its last note begins the silence; the flag comes down to half-mast."),
         Cue(id: "silence", title: "Two Minutes of Silence", kind: .silence(seconds: 120),
             note: "Starts by itself when the Last Post ends. No music at all, not even a lament."),
         Cue(id: "rouse", title: "The Rouse", kind: .audio(resource: "rouse.wav"),
             note: "Ends the silence (after the Lament, if a piper plays one). The Act of Remembrance follows."),
         Cue(id: "royal-anthem", title: "God Save the King", kind: .audio(resource: "royal-anthem.mp3"),
-            note: "Closes the ceremony, after the wreaths and benediction."),
+            note: "Closes the ceremony, after the wreaths; the flag goes back up during it."),
     ]
 }
