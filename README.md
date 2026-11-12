@@ -1,4 +1,6 @@
-# Remembrance
+<p align="center"><img src="docs/icon.png" width="128" alt="Remembrance app icon"></p>
+
+<h1 align="center">Remembrance</h1>
 
 A small macOS app for running the audio at a Canadian Remembrance Day service: **O Canada**, **the
 Last Post**, **two minutes of silence**, **the Rouse** and **God Save the King**, using the official
